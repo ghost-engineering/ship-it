@@ -154,4 +154,4 @@ It won't push unless the build passes. If merge conflicts are complex, it stops 
 
 ## License
 
-MIT - [Ghost Engineering](https://ghostengr.com)
+MIT - [Ghost Engineering](https://reachbpt.com?from=ship-it)
