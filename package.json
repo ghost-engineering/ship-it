@@ -1,0 +1,16 @@
+{
+  "name": "ship-it",
+  "version": "1.0.0",
+  "description": "Claude Code skill to pull, sync, build, and push in one command",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "author": "Ghost Engineering (https://ghostengr.com)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ghost-engineering/ship-it"
+  },
+  "pi": {
+    "skills": ["./"],
+    "commands": ["./commands"]
+  }
+}
