@@ -1,6 +1,6 @@
 ---
-allowed-tools: Bash(git pull:*), Bash(git fetch:*), Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git merge:*), Bash(git log:*), Bash(git diff:*), Bash(git stash:*), Bash(git rebase:*), Bash(git branch:*), Bash(git remote:*), Bash(npx vercel env pull:*), Bash(npx netlify env*), Bash(npm run build:*), Bash(cat package.json), Bash(ls -la:*), Bash(test -f:*), Bash(test -d:*)
-description: Pull latest, resolve conflicts, sync env, build, and push to deploy
+allowed-tools: Bash(git pull:*), Bash(git fetch:*), Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git merge:*), Bash(git log:*), Bash(git diff:*), Bash(git stash:*), Bash(git rebase:*), Bash(git branch:*), Bash(git remote:*), Bash(git checkout:*), Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(npx vercel env pull:*), Bash(npx netlify env*), Bash(npm run build:*), Bash(cat package.json), Bash(ls -la:*), Bash(test -f:*), Bash(test -d:*)
+description: Pull latest, resolve conflicts, sync env, build, and push — with PR support for protected branches
 ---
 
 ## Context
@@ -21,10 +21,12 @@ Determine the deployment platform and build setup:
 - Check for `netlify.toml` or `.netlify/` directory → **Netlify**
 - Otherwise → **Plain git** (skip env sync later)
 
-Read `package.json` to confirm a `build` script exists.
+Read `package.json` to confirm a `build` script exists. If there is no `build` script, skip the build step later.
 
-Determine the main branch:
-- Check `git remote show origin` or use the current branch
+Determine the branch context:
+
+- Get the current branch name from `git branch --show-current`
+- Determine the default branch: run `git remote show origin` and look for "HEAD branch"
 - Do not assume `main` — it could be `master` or another branch
 
 ### 2. Check for uncommitted changes
@@ -39,7 +41,7 @@ If the working tree is clean, move on.
 
 ### 3. Pull latest from remote
 
-Run `git fetch origin` then `git pull origin <branch> --no-rebase`.
+Run `git fetch origin` then `git pull origin <current-branch> --no-rebase`.
 
 If there are merge conflicts:
 - List all conflicted files
@@ -74,7 +76,7 @@ If the command fails due to authentication:
 
 ### 5. Build check
 
-Run `npm run build` to verify everything compiles cleanly.
+If `package.json` has a `build` script, run `npm run build` to verify everything compiles cleanly.
 
 If the build fails:
 - Read the error output carefully
@@ -82,15 +84,32 @@ If the build fails:
 - Re-run `npm run build` after fixes
 - If you cannot fix the errors after one attempt, STOP and show the user the full error output
 
-### 6. Push to remote
+If there is no build script, skip this step.
 
-Run `git push origin <branch>`.
+### 6. Push or create PR
 
-If the push is rejected (remote has new commits since our pull):
-- Run `git pull origin <branch> --no-rebase` again
-- Resolve any new conflicts
-- Re-run build
-- Push again
+Determine the push strategy based on branch context:
+
+**If you are on the default branch (main/master):**
+- Try `git push origin <branch>`
+- If the push is **rejected because the branch is protected** (e.g., "protected branch hook declined", "required status check", "required pull request reviews"):
+  1. Create a feature branch: `git checkout -b ship-it/<short-description>` (use the commit message to derive a short kebab-case name)
+  2. Push the feature branch: `git push -u origin ship-it/<short-description>`
+  3. Create a PR: `gh pr create --title "<commit summary>" --body "Automated PR created by /ship-it"`
+  4. Tell the user the PR URL and that the branch is protected
+- If the push is **rejected because remote has new commits**:
+  1. Pull again: `git pull origin <branch> --no-rebase`
+  2. Resolve any new conflicts
+  3. Re-run build
+  4. Push again
+  5. If it fails a second time, STOP and ask the user
+
+**If you are on a feature branch:**
+- Push the branch: `git push -u origin <branch>`
+- Check if a PR already exists: `gh pr view <branch>` (ignore errors if no PR exists)
+- If no PR exists, ask the user: "Want me to create a PR to merge `<branch>` into `<default-branch>`?"
+  - If yes: `gh pr create --title "<summary>" --body "Automated PR created by /ship-it"` targeting the default branch
+  - If no: just confirm the push succeeded
 
 ### 7. Summary
 
@@ -98,8 +117,8 @@ After all steps complete, provide a concise summary:
 
 - **Committed**: What was committed (or "nothing — tree was clean")
 - **Pulled**: Whether new changes came in, and if conflicts were resolved
-- **Env**: Whether env was synced and which platform
-- **Build**: Pass or fail
-- **Pushed**: Commit range pushed (e.g., `abc123..def456`)
+- **Env**: Whether env was synced and which platform (or "skipped — plain git")
+- **Build**: Pass, fail, or skipped (no build script)
+- **Pushed**: Commit range pushed and to which branch, OR the PR URL if a PR was created
 
 You MUST execute all steps sequentially. If any step fails and cannot be recovered, STOP immediately and explain what went wrong. Do not continue past a failure.
