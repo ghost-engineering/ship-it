@@ -1,4 +1,4 @@
-# ship-it
+# Just _Ship It_!
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that pulls, syncs, builds, and pushes your project in one command.
 
