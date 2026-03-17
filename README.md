@@ -59,6 +59,8 @@ Open your project in Claude Code and type:
 /ship-it
 ```
 
+You can also just say "ship it" in the chat and it'll do the same thing.
+
 The skill will walk through each step automatically and give you a summary at the end.
 
 ### What you'll see
